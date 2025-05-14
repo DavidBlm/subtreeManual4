@@ -8,7 +8,7 @@ jobs:
       GITLAB_USERNAME: "David.Blum"
       GITLABTOKEN: ${{ secrets.GITLABTOKEN }}
       GHCR_PAT: ${{ secrets.GHCR_PAT }}
-      GHCR_REPO_OWNER: ${{ github.actor | toLowerCase}}
+      GHCR_REPO_OWNER: "davidblm"
     steps:
       - name: Log in to GitLab
         run: |
