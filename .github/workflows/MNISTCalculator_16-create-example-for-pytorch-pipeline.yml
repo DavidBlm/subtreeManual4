@@ -368,9 +368,9 @@ jobs:
             docker login -u $CI_REGISTRY_USER -p ${{ secrets.GITLABTOKEN }} $CI_REGISTRY
             docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:$CI_COMMIT_REF_NAME
             if [ "$CI_COMMIT_REF_NAME" == "master" ];  then
-  docker tag $CI_REGISTRY_IMAGE/$IMAGE_NAME:$CI_COMMIT_REF_NAME $CI_REGISTRY_IMAGE/$IMAGE_NAME:latest
-  docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:latest
-fi
+              docker tag $CI_REGISTRY_IMAGE/$IMAGE_NAME:$CI_COMMIT_REF_NAME $CI_REGISTRY_IMAGE/$IMAGE_NAME:latest
+              docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:latest
+            fi
 
         run: docker exec build-container bash -c "$SCRIPT"
 
