@@ -1,0 +1,429 @@
+name: MNISTCalculator_16-create-example-for-pytorch-pipeline
+on:
+  push:
+    paths:
+      - 'monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline/**'
+  workflow_dispatch:
+env:
+  CI_PROJECT_ID : 25225
+  CI_API_V4_URL : https://git.rwth-aachen.de/api/v4
+  GITLABTOKEN : ${{ secrets.GITLABTOKEN }}
+jobs:
+  FileChanges:
+    runs-on: ubuntu-latest
+    outputs:
+      runbase/mxnet: ${{steps.base_mxnet.outputs.run}}
+    steps:
+      - name: Checkout latest commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check for file changes
+        run: |
+          CHANGES=$(git diff --name-only HEAD^ HEAD)
+          echo "$CHANGES"
+          echo "$CHANGES" > diff.txt
+      - name: Check base/mxnet
+        id: base_mxnet
+        run: |
+          run=false
+          if cat diff.txt | grep '^docker/base/*'; then
+            echo "RUN"
+            run=true
+          else
+            echo "DONT RUN"
+          fi
+          echo "run=$run" >> $GITHUB_OUTPUT
+  prebuild_phase:
+    needs: [base_mxnet]
+    if: ${{ !cancelled()}}
+    runs-on: ubuntu-latest
+    steps:
+        - run: |
+            echo "Finished stage prebuild"
+          if: ${{!contains(needs.*.result, 'failure')}}
+        - run: |
+            echo "Failed stage prebuild"
+            exit 1
+          if: ${{contains(needs.*.result, 'failure')}}
+  test_phase:
+    needs: [prebuild_phase, TestTENSORFLOW, TestMnistWithAdaNet, TestMnistCalculator-II, TestGluonONNX, TrainTensorflowONNX, TestGLUON, TestEMADLMavenPlugin, TestMNISTwithCustomLayer]
+    if: ${{ !cancelled()}}
+    runs-on: ubuntu-latest
+    steps:
+        - run: |
+            echo "Finished stage test"
+          if: ${{!contains(needs.*.result, 'failure')}}
+        - run: |
+            echo "Failed stage test"
+            exit 1
+          if: ${{contains(needs.*.result, 'failure')}}
+
+  TestGLUON:
+    needs: prebuild_phase
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout latest commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Restore large files
+        run: |
+          ls
+          find . -type f -name '*.part*' | sort | while read part; do
+          echo "Restoring $part"
+          base=$(echo "$part" | sed 's/.part.*//')
+          cat "$part" >> "$base"
+          rm "$part"
+          done
+      - name: Start Docker Container
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull ghcr.io/davidblm/mxnet:v0.0.5
+          docker run --name build-container -d -v $(pwd):/workspace --network=host  -e CI_API_V4_URL=$CI_API_V4_URL -e GITLABTOKEN=${{ secrets.GITLABTOKEN }} ghcr.io/davidblm/mxnet:v0.0.5 tail -f /dev/null
+      - name: Script
+        env:
+          SCRIPT: |
+            cd /workspace
+            cd monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline
+            cd gluon-cpp
+            chmod +x build.sh
+            ./build.sh
+            RES=$(./build/src/cpp/DigitCalculator resources/images/1.png resources/images/2.png resources/images/3.png resources/images/4.png resources/images/5.png resources/images/6.png)
+            if [[ $RES != *"SUM: 579"* ]]; then echo "Wrong result:" $RES; exit 1; fi;
+        run: docker exec build-container bash -c "$SCRIPT"
+
+  TestTENSORFLOW:
+    needs: prebuild_phase
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout latest commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Restore large files
+        run: |
+          ls
+          find . -type f -name '*.part*' | sort | while read part; do
+          echo "Restoring $part"
+          base=$(echo "$part" | sed 's/.part.*//')
+          cat "$part" >> "$base"
+          rm "$part"
+          done
+      - name: Start Docker Container
+        run: |
+          docker pull registry.git.rwth-aachen.de/monticore/embeddedmontiarc/applications/mnistcalculator/tensorflow
+          docker run --name build-container -d -v $(pwd):/workspace --network=host  -e CI_API_V4_URL=$CI_API_V4_URL -e GITLABTOKEN=${{ secrets.GITLABTOKEN }} registry.git.rwth-aachen.de/monticore/embeddedmontiarc/applications/mnistcalculator/tensorflow tail -f /dev/null
+      - name: Script
+        env:
+          SCRIPT: |
+            cd /workspace
+            cd monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline
+            cd tensorflow
+            chmod +x build.sh
+            ./build.sh
+            RES=$(./build/src/cpp/DigitCalculator resources/images/1.png resources/images/2.png resources/images/3.png resources/images/4.png resources/images/5.png resources/images/6.png)
+            if [[ $RES != *"SUM: 579"* ]]; then echo "Wrong result:" $RES; exit 1; fi;
+        run: docker exec build-container bash -c "$SCRIPT"
+
+  TestMnistCalculator-II:
+    needs: prebuild_phase
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout latest commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Restore large files
+        run: |
+          ls
+          find . -type f -name '*.part*' | sort | while read part; do
+          echo "Restoring $part"
+          base=$(echo "$part" | sed 's/.part.*//')
+          cat "$part" >> "$base"
+          rm "$part"
+          done
+      - name: Start Docker Container
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull ghcr.io/davidblm/dockerimages/mxnet170:v0.0.1
+          docker run --name build-container -d -v $(pwd):/workspace --network=host  -e CI_API_V4_URL=$CI_API_V4_URL -e GITLABTOKEN=${{ secrets.GITLABTOKEN }} ghcr.io/davidblm/dockerimages/mxnet170:v0.0.1 tail -f /dev/null
+      - name: Script
+        continue-on-error: true
+        env:
+          SCRIPT: |
+            cd /workspace
+            cd monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline
+            mv /mxnet/build/libmxnet.so /mxnet/build/libmxnet.a /usr/lib/
+            cd mnist-calculator
+            mvn streamtest:streamtest-build -s settings.xml -Dmaven.wagon.http.retryHandler.count=50 -Dmaven.wagon.http.connectionTimeout=6000000 -Dmaven.wagon.http.readTimeout=600000000
+        run: docker exec build-container bash -c "$SCRIPT"
+
+  TestEMADLMavenPlugin:
+    needs: prebuild_phase
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout latest commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Restore large files
+        run: |
+          ls
+          find . -type f -name '*.part*' | sort | while read part; do
+          echo "Restoring $part"
+          base=$(echo "$part" | sed 's/.part.*//')
+          cat "$part" >> "$base"
+          rm "$part"
+          done
+      - name: Start Docker Container
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull ghcr.io/davidblm/dockerimages/mxnet170:v0.0.1
+          docker run --name build-container -d -v $(pwd):/workspace --network=host  -e CI_API_V4_URL=$CI_API_V4_URL -e GITLABTOKEN=${{ secrets.GITLABTOKEN }} ghcr.io/davidblm/dockerimages/mxnet170:v0.0.1 tail -f /dev/null
+      - name: Script
+        env:
+          SCRIPT: |
+            cd /workspace
+            cd monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline
+            mv /mxnet/build/libmxnet.so /mxnet/build/libmxnet.a /usr/lib/
+            cd emadl-maven-plugin
+            python3 -m pip install -U pip
+            python3 -m pip install scikit-image
+            python3 -m pip install opencv-python
+            mvn dependency:resolve emadl:train -s settings.xml -U -Dmaven.wagon.http.retryHandler.count=50 -Dmaven.wagon.http.connectionTimeout=6000000 -Dmaven.wagon.http.readTimeout=600000000
+            mkdir output
+            python3 calculator.py
+        run: docker exec build-container bash -c "$SCRIPT"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: TestEMADLMavenPlugin
+          retention-days: 1 week
+          path: |
+            monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline/emadl-maven-plugin/output/*
+
+  TestMnistWithAdaNet:
+    needs: prebuild_phase
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout latest commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Restore large files
+        run: |
+          ls
+          find . -type f -name '*.part*' | sort | while read part; do
+          echo "Restoring $part"
+          base=$(echo "$part" | sed 's/.part.*//')
+          cat "$part" >> "$base"
+          rm "$part"
+          done
+      - name: Start Docker Container
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull ghcr.io/davidblm/dockerimages/mxnet170:v0.0.1
+          docker run --name build-container -d -v $(pwd):/workspace --network=host  -e CI_API_V4_URL=$CI_API_V4_URL -e GITLABTOKEN=${{ secrets.GITLABTOKEN }} ghcr.io/davidblm/dockerimages/mxnet170:v0.0.1 tail -f /dev/null
+      - name: Script
+        env:
+          SCRIPT: |
+            cd /workspace
+            cd monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline
+            mv /mxnet/build/libmxnet.so /mxnet/build/libmxnet.a /usr/lib/
+            cd AdaNet
+            mvn dependency:resolve emadl:train -s settings.xml -Dmaven.wagon.http.retryHandler.count=50 -Dmaven.wagon.http.connectionTimeout=6000000 -Dmaven.wagon.http.readTimeout=600000000
+        run: docker exec build-container bash -c "$SCRIPT"
+
+  TestMNISTwithCustomLayer:
+    needs: prebuild_phase
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout latest commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Restore large files
+        run: |
+          ls
+          find . -type f -name '*.part*' | sort | while read part; do
+          echo "Restoring $part"
+          base=$(echo "$part" | sed 's/.part.*//')
+          cat "$part" >> "$base"
+          rm "$part"
+          done
+      - name: Start Docker Container
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull ghcr.io/davidblm/dockerimages/mxnet170:v0.0.1
+          docker run --name build-container -d -v $(pwd):/workspace --network=host  -e CI_API_V4_URL=$CI_API_V4_URL -e GITLABTOKEN=${{ secrets.GITLABTOKEN }} ghcr.io/davidblm/dockerimages/mxnet170:v0.0.1 tail -f /dev/null
+      - name: Script
+        env:
+          SCRIPT: |
+            cd /workspace
+            cd monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline
+            shopt -s expand_aliases
+            echo 'alias python='\''/usr/bin/python3'\''' >> ~/.bashrc
+            . ~/.bashrc
+            cat ~/.bashrc
+            echo $PYTHONPATH
+            python --version
+            python3 --version
+            which python
+            which python3
+            alias python=/usr/bin/python3
+            python --version
+            python3 --version
+            which python
+            type -a python
+            mv /mxnet/build/libmxnet.so /mxnet/build/libmxnet.a /usr/lib/
+            cd mnist-custom-layer
+            mvn dependency:resolve emadl:train -s settings.xml -Dmaven.wagon.http.retryHandler.count=50 -Dmaven.wagon.http.connectionTimeout=6000000 -Dmaven.wagon.http.readTimeout=600000000
+        run: docker exec build-container bash -c "$SCRIPT"
+
+  TrainTensorflowONNX:
+    needs: prebuild_phase
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout latest commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Restore large files
+        run: |
+          ls
+          find . -type f -name '*.part*' | sort | while read part; do
+          echo "Restoring $part"
+          base=$(echo "$part" | sed 's/.part.*//')
+          cat "$part" >> "$base"
+          rm "$part"
+          done
+      - name: Start Docker Container
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull ghcr.io/davidblm/dockerimages/tensorflow-onnx:latest
+          docker run --name build-container -d -v $(pwd):/workspace --network=host  -e CI_API_V4_URL=$CI_API_V4_URL -e GITLABTOKEN=${{ secrets.GITLABTOKEN }} ghcr.io/davidblm/dockerimages/tensorflow-onnx:latest tail -f /dev/null
+      - name: Script
+        env:
+          SCRIPT: |
+            cd /workspace
+            cd monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline
+            cd onnx/tensorflow-pretrained
+            mvn dependency:resolve emadl:train -s settings.xml -Dmaven.wagon.http.retryHandler.count=50 -Dmaven.wagon.http.connectionTimeout=6000000 -Dmaven.wagon.http.readTimeout=600000000
+        run: docker exec build-container bash -c "$SCRIPT"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: TrainTensorflowONNX
+          retention-days: 1 
+          path: |
+            monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline/onnx/tensorflow-pretrained/model/
+
+  base_mxnet:
+    needs: FileChanges
+    if: ${{needs.FileChanges.outputs.runbase_mxnet == 'true'}}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout latest commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Restore large files
+        run: |
+          ls
+          find . -type f -name '*.part*' | sort | while read part; do
+          echo "Restoring $part"
+          base=$(echo "$part" | sed 's/.part.*//')
+          cat "$part" >> "$base"
+          rm "$part"
+          done
+      - name: Start Docker Container
+        run: |
+          docker pull docker:dind
+          docker run --name build-container -d -v $(pwd):/workspace --network=host  -e CI_API_V4_URL=$CI_API_V4_URL -e GITLABTOKEN=${{ secrets.GITLABTOKEN }} docker:dind tail -f /dev/null
+      - name: Script
+        env:
+          SCRIPT: |
+            cd /workspace
+            cd monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline
+            cd docker/base
+            docker build -t $CI_REGISTRY_IMAGE/$IMAGE_NAME:$CI_COMMIT_REF_NAME .
+            docker login -u $CI_REGISTRY_USER -p ${{ secrets.GITLABTOKEN }} $CI_REGISTRY
+            docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:$CI_COMMIT_REF_NAME
+            if [ "$CI_COMMIT_REF_NAME" == "master" ];  then
+  docker tag $CI_REGISTRY_IMAGE/$IMAGE_NAME:$CI_COMMIT_REF_NAME $CI_REGISTRY_IMAGE/$IMAGE_NAME:latest
+  docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:latest
+fi
+
+        run: docker exec build-container bash -c "$SCRIPT"
+
+  TestGluonONNX:
+    needs: TrainTensorflowONNX
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout latest commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Restore large files
+        run: |
+          ls
+          find . -type f -name '*.part*' | sort | while read part; do
+          echo "Restoring $part"
+          base=$(echo "$part" | sed 's/.part.*//')
+          cat "$part" >> "$base"
+          rm "$part"
+          done
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: TrainTensorflowONNX
+          path: |
+            monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline/onnx/tensorflow-pretrained/model/
+      - name: Start Docker Container
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker pull ghcr.io/davidblm/dockerimages/mxnet170-onnx:v0.0.1
+          docker run --name build-container -d -v $(pwd):/workspace --network=host  -e CI_API_V4_URL=$CI_API_V4_URL -e GITLABTOKEN=${{ secrets.GITLABTOKEN }} ghcr.io/davidblm/dockerimages/mxnet170-onnx:v0.0.1 tail -f /dev/null
+      - name: Script
+        env:
+          SCRIPT: |
+            cd /workspace
+            cd monticore/EmbeddedMontiArc/applications/MNISTCalculator/16-create-example-for-pytorch-pipeline
+            mv /mxnet/build/libmxnet.so /mxnet/build/libmxnet.a /usr/lib/
+            python3 -m pip install -U pip
+            python3 -m pip install scikit-image
+            python3 -m pip install opencv-python
+            cd onnx/tensorflow-pretrained
+            python3 -m pip install -U pip
+            python3 -m pip install scikit-image
+            python3 -m pip install opencv-python
+            ls model/cNNCalculator.Network/
+            mvn emadl:install-pretrained -e -s ./settings.xml -Dmaven.wagon.http.retryHandler.count=50 -Dmaven.wagon.http.connectionTimeout=6000000 -Dmaven.wagon.http.readTimeout=600000000
+            cd ../gluon-load
+            mvn emadl:train -s settings.xml -Dmaven.wagon.http.retryHandler.count=50 -Dmaven.wagon.http.connectionTimeout=6000000 -Dmaven.wagon.http.readTimeout=600000000
+            chmod +x build.sh
+            ./build.sh
+            RES=$(./build/src/cpp/DigitCalculator resources/images/1.png resources/images/2.png resources/images/3.png resources/images/4.png resources/images/5.png resources/images/6.png)
+            if [[ $RES != *"SUM: 579"* ]]; then echo "Wrong result:" $RES; exit 1; fi;
+        run: docker exec build-container bash -c "$SCRIPT"
+
