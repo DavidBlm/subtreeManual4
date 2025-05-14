@@ -5,10 +5,10 @@ jobs:
   docker-migration:
     runs-on: ubuntu-latest
     env:
-      GITLAB_USERNAME: "david.blum"
+      GITLAB_USERNAME: "David.Blum"
       GITLABTOKEN: ${{ secrets.GITLABTOKEN }}
       GHCR_PAT: ${{ secrets.GHCR_PAT }}
-      GHCR_REPO_OWNER: ${{ github.actor }}
+      GHCR_REPO_OWNER: ${{ github.actor | toLowerCase}}
     steps:
       - name: Log in to GitLab
         run: |
