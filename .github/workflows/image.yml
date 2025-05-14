@@ -27,7 +27,7 @@ jobs:
             fi
             LOWERCASE_IMAGE=$(echo "$IMAGE" | tr "[:upper:]" "[:lower:]")
             if [[ $IMAGE == :* ]]; then
-              GHCR_IMAGE="ghcr.io/$GHCR_REPO_OWNER/monticore/embeddedmontiarc/generators/emadl2cpp$LOWERCASE_IMAGE"
+              GHCR_IMAGE="ghcr.io/$GHCR_REPO_OWNER/emadl2cpp$LOWERCASE_IMAGE"
             else
                GHCR_IMAGE="ghcr.io/$GHCR_REPO_OWNER/$LOWERCASE_IMAGE"
             fi
